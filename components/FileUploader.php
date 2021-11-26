@@ -95,6 +95,9 @@ class FileUploader extends ComponentBase
         $this->autoPopulate();
     }
 
+    /**
+     * onRender
+     */
     public function onRender()
     {
         if (!$this->isBound) {
@@ -120,12 +123,5 @@ class FileUploader extends ComponentBase
         $file->pathUrl = $file->thumbUrl = $file->getPath();
 
         return $file;
-    }
-
-    public function onRemoveAttachment()
-    {
-        if (($file_id = post('file_id')) && ($file = File::find($file_id))) {
-            $this->model->{$this->attribute}()->remove($file, $this->getSessionKey());
-        }
     }
 }

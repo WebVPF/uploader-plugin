@@ -56,7 +56,7 @@ trait ComponentUtils
     {
         $list = $this->isMulti ? $model : new Collection([$model]);
 
-        $list->each(function($file) {
+        $list->each(function ($file) {
             $this->decorateFileAttributes($file);
         });
 
@@ -103,7 +103,7 @@ trait ComponentUtils
         /*
          * Decorate each file with thumb
          */
-        $list->each(function($file) {
+        $list->each(function ($file) {
             $this->decorateFileAttributes($file);
         });
 
@@ -120,14 +120,20 @@ trait ComponentUtils
             $uploadedFile = Input::file('file_data');
 
 
-            $validationRules = ['max:'.$this->getMaxFileSize()];
+            $validationRules = ['max:' . $this->getMaxFileSize()];
             if ($fileTypes = $this->processFileTypes()) {
-                $validationRules[] = 'extensions:'.$fileTypes;
+                $validationRules[] = 'extensions:' . $fileTypes;
+            }
+
+            // Support model validation rules
+            if (!empty($this->model->rules[$this->attribute])) {
+                $validationRules[] = $this->model->rules[$this->attribute];
             }
 
             $validation = Validator::make(
                 ['file_data' => $uploadedFile],
-                ['file_data' => $validationRules]
+                ['file_data' => $validationRules],
+                $this->model->customMessages ? $this->model->customMessages : []
             );
 
             if ($validation->fails()) {
@@ -158,13 +164,44 @@ trait ComponentUtils
             ];
 
             return Response::json($result, 200);
-
         }
         catch (Exception $ex) {
             return Response::json($ex->getMessage(), 400);
         }
     }
 
+    /**
+     * onRemoveAttachment removes an attachment
+     */
+    public function onRemoveAttachment()
+    {
+        if (!$fileId = post('file_id')) {
+            return;
+        }
+
+        /*
+         * Use deferred bindings
+         */
+        if ($sessionKey = $this->getSessionKey()) {
+            $file = $this->model
+                ->{$this->attribute}()
+                ->withDeferred($sessionKey)
+                ->find($fileId);
+        }
+        else {
+            $file = $this->model
+                ->{$this->attribute}()
+                ->find($fileId);
+        }
+
+        if ($file) {
+            $this->model->{$this->attribute}()->remove($file, $this->getSessionKey());
+        }
+    }
+
+    /**
+     * getSessionKey
+     */
     public function getSessionKey()
     {
         return !!$this->property('deferredBinding')
@@ -190,7 +227,7 @@ trait ComponentUtils
             $types = explode(',', $types);
         }
 
-        $types = array_map(function($value) use ($includeDot) {
+        $types = array_map(function ($value) use ($includeDot) {
             $value = trim($value);
 
             if (substr($value, 0, 1) == '.') {
@@ -198,7 +235,7 @@ trait ComponentUtils
             }
 
             if ($includeDot) {
-                $value = '.'.$value;
+                $value = '.' . $value;
             }
 
             return $value;
@@ -208,7 +245,7 @@ trait ComponentUtils
     }
 
     /**
-     * Get the max File Size
+     * getMaxFileSize
      * @return int
      */
     protected function getMaxFileSize()
